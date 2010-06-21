@@ -115,11 +115,13 @@ class Game
 
           # Offer to split and double down first if they are valid options.
           # To be valid options, there must be enough money and, in the case of
-          # split, both cards must be equal.
+          # split, both cards must be equal.  Splitting can happen forever.
+          while player.money >= hand.bet and !hand.split_refused and
+            hand.cards[0].rank == hand.cards[1].rank
+            player.split?(hand, @deck)
+          end
+
           if player.money >= hand.bet
-            if hand.cards[0].rank == hand.cards[1].rank
-              player.split?(hand, @deck)
-            end
             player.double_down?(hand, @deck)
           end
 

@@ -6,13 +6,14 @@ require "card"
 
 
 class Hand
-  attr_accessor :bet, :cards, :done, :resolved
+  attr_accessor :bet, :cards, :done, :resolved, :split_refused
 
   # An empty hand.
   def initialize
     @bet = nil
     @cards = Array.new
     @done = false
+    @split_refused = false
     @resolved = false
   end
 

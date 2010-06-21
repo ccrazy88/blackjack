@@ -138,6 +138,7 @@ class Human < Player
     end
 
     # Refuse to split.
+    hand.split_refused = true
     return nil
   end
 end
