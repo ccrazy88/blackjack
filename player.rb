@@ -132,7 +132,8 @@ class Human < Player
       new_hand.add(deck.next)
       @hands.push(new_hand)
 
-      puts "Your new hands are #{hand.to_s} and #{new_hand.to_s}."
+      puts "Your new hands are #{hand.to_s} and #{new_hand.to_s}.  You will " +
+        "continue to play the first new hand."
       return new_hand
     end
 
