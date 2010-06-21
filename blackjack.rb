@@ -15,7 +15,7 @@ def receive_int(question, min, max)
   answer = receive_answer(question)
   while answer != answer.to_i.to_s or
     (answer == answer.to_i.to_s and (answer.to_i < min or answer.to_i > max))
-    puts "Please enter a number between #{min} and #{max}."
+    puts "Please enter an integer between #{min} and #{max}."
     answer = receive_answer(question)
   end
   return answer.to_i
@@ -54,7 +54,10 @@ class Game
 
   def remove_bankrupt_players
     @players = @players.select {|player| player.money > 0}
-    puts "The game is over." if @players.empty?
+    if @players.empty?
+      puts
+      puts "The game is over."
+    end
   end
 
   def take_bets
@@ -90,63 +93,120 @@ class Game
       @players.each do |player|
         if player.first_hand.blackjack?
           # Approximately a 3:2 payout to preserve integerness.
-          payout = 3 * player.first_hand.bet / 2
-          puts "#{player.name} wins $#{payout} with a blackjack!"
-          player.money += payout
+          profit = 3 * player.first_hand.bet / 2
+          puts "#{player.name} wins $#{profit} with a blackjack!"
+          player.money += player.first_hand.bet + profit
+          player.first_hand.done = true
+          player.first_hand.resolved = true
         end
       end
     end
   end
 
   def fill_hands
+    # Players.
+    @players.each do |player|
+      hands_to_fill = player.hands.select {|hand| !hand.done}
+      until hands_to_fill.empty?
+        hands_to_fill.each do |hand|
+          puts
+          puts "#{player.name}, your hand is #{hand.to_s}.  The dealer is " +
+            "showing #{@dealer.up_card}."
+
+          # Offer to split and double down first if they are valid options.
+          # To be valid options, there must be enough money and, in the case of
+          # split, both cards must be equal.
+          if player.money >= hand.bet
+            if hand.cards[0].rank == hand.cards[1].rank
+              player.split?(hand, @deck)
+            end
+            player.double_down?(hand, @deck)
+          end
+
+          # Then, offer to hit until they don't want to anymore or can't.
+          # After this, the hand is completed.
+          until hand.done
+            player.hit?(hand, @deck)
+          end
+
+          # If the hand is busted, resolve immediately.
+          if hand.bust?
+            puts "#{player.name} busts with #{hand.to_s} (-$#{hand.bet})."
+            hand.resolved = true
+          end
+        end
+        hands_to_fill = player.hands.select {|hand| !hand.done}
+      end
+    end
+
+    # Dealer.
+    dealer_hand = @dealer.first_hand
+    until dealer_hand.bust? or dealer_hand.done
+      @dealer.hit?(dealer_hand, @deck)
+    end
   end
 
   def resolve_bets
-    puts "Time to resolve all hands!"
-    dealer_cards = @dealer.first_hand.cards.join(" ")
-    dealer_score = @dealer.first_hand.to_i
-    puts "The dealer's hand is #{dealer_cards} -> #{dealer_score}."
+    puts
+    puts "Time to resolve all live hands!"
+    dealer_hand = @dealer.first_hand
+    dealer_score = dealer_hand.to_i
+    puts "The dealer's hand is #{dealer_hand.to_s}."
     # For each hand:
     @players.each do |player|
       player.hands.each do |hand|
-        # Blackjack hands are already resolved.
-        if !hand.blackjack?
-          cards = hand.cards.join(" ")
-          score = hand.to_i
+        # Blackjack hands and busted hands are already resolved.
+        if !hand.resolved
           bet = hand.bet
           # Now, we reward winners,
-          if !hand.bust? and hand.to_i > dealer_score
-            puts "#{player.name} wins $#{bet} with #{cards} -> #{score}!"
-            player.money += 2 * hand.bet
+          if hand.to_i > dealer_score or dealer_hand.bust?
+            puts "#{player.name} wins $#{bet} with #{hand.to_s}!"
+            player.money += 2 * bet
           # square things with pushers,
-          elsif !hand.bust? and hand.to_i == dealer_score
-            puts "#{player.name} ties with #{cards} -> #{score}."
-            player.money += hand.bet
+          elsif hand.to_i == dealer_score
+            puts "#{player.name} ties with #{hand.to_s}."
+            player.money += bet
           # and leave losers alone.
           else
-            puts "#{player.name} loses $#{bet} with #{cards} -> #{score}."
+            puts "#{player.name} loses $#{bet} with #{hand.to_s}."
           end
         end
+      end
+    end
+    puts "All live hands have been resolved."
+  end
+
+  def print_bankrupt_players
+    bankrupt_players = @players.select {|player| player.money <= 0}
+    if !bankrupt_players.empty?
+      puts
+      bankrupt_players.each do |player|
+        puts "#{player.name} has $0 and must leave :(."
       end
     end
   end
 
   def play
     while true
-      puts "New round starting!"
       start_round
       remove_bankrupt_players
       break if @players.empty?
+
+      puts
+      puts "New round starting!"
+
       take_bets
       deal_first_cards
       resolve_blackjacks
+
       # If the dealer received a blackjack, the round is over.
       if !@dealer.first_hand.blackjack?
         fill_hands
         resolve_bets
       end
-      # Prettiness.
-      puts
+
+      print_bankrupt_players
+
     end
   end
 end

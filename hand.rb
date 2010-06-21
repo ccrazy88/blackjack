@@ -6,16 +6,18 @@ require "card"
 
 
 class Hand
-  attr_accessor :bet, :cards, :done
+  attr_accessor :bet, :cards, :done, :resolved
 
   # An empty hand.
   def initialize
     @bet = nil
     @cards = Array.new
+    @done = false
+    @resolved = false
   end
 
   def to_s
-    "#{@cards.join(" ")} -> #{to_i} ($#{@bet})"
+    "#{@cards.join(" ")} -> #{to_i}"
   end
 
   def to_i

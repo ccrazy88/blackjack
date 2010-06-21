@@ -31,7 +31,7 @@ class Player
     @hands[0]
   end
 
-  def hit(hand, deck)
+  def hit?(hand, deck)
     raise ArgumentError.new("This hand has already busted.") unless !hand.bust?
   end
 end
@@ -48,7 +48,7 @@ class Human < Player
   def to_s
     s = "#{@name}\n  Money: $#{@money}\n  Hands:\n"
     @hands.each do |hand|
-      s.concat("    #{hand.to_s}\n")
+      s.concat("    #{hand.to_s} (#{hand.bet})\n")
     end
     s.chomp!
     return s
@@ -61,7 +61,7 @@ class Human < Player
     hand.bet = bet
   end
 
-  def hit(hand, deck)
+  def hit?(hand, deck)
     super
     question = "#{@name}, would you like to (h)it or (s)tand? "
     response = receive_answer(question)[0..0]
@@ -70,14 +70,21 @@ class Human < Player
       response = receive_answer(question)[0..0]
     end
 
+    # Hit!
     if response == 'h'
       hand.add(deck.next)
+
+      puts "Your new hand is #{hand.to_s}."
+      hand.done = true if hand.bust? or hand.to_i == 21
       return true
     end
+
+    # Stand.
+    hand.done = true
     return false
   end
 
-  def double_down(hand, deck)
+  def double_down?(hand, deck)
     raise ArgumentError.new("Inappropriate hand.") unless
       hand.cards.length == 2
     raise ArgumentError.new("Not enough money.") unless hand.bet <= @money
@@ -89,35 +96,47 @@ class Human < Player
       response = receive_answer(question)[0..0]
     end
 
+    # Double down!
     if response == 'y'
       @money -= hand.bet
       hand.bet += hand.bet
+      hand.done = true
       hand.add(deck.next)
+
+      puts "Your final hand is #{hand.to_s}."
       return true
     end
+
+    # Refuse to double down.
     return false
   end
 
-  def split(hand, deck)
+  def split?(hand, deck)
     raise ArgumentError.new("Inappropriate hand.") unless
       hand.cards.length == 2 and hand.cards[0].rank == hand.cards[1].rank
     raise ArgumentError.new("Not enough money.") unless hand.bet <= @money
 
-    puts "#{@name}, would you like to split (y/n)? "
-    response = gets.chomp[0..0]
+    question = "#{@name}, would you like to split (y/n)? "
+    response = receive_answer(question)[0..0]
+
+    # Split!
     if response == 'y'
-      # Doesn't matter which.
+      # Doesn't matter which card.
       card = hand.remove!(0)
+      new_hand = Hand.new
       @money -= hand.bet
-      new_hand = Hand.new(hand.bet)
+      new_hand.bet = hand.bet
       new_hand.add(card)
 
       hand.add(deck.next)
       new_hand.add(deck.next)
-
       @hands.push(new_hand)
+
+      puts "Your new hands are #{hand.to_s} and #{new_hand.to_s}."
       return new_hand
     end
+
+    # Refuse to split.
     return nil
   end
 end
@@ -128,10 +147,24 @@ class Dealer < Player
     super("Dealer")
   end
 
-  def hit(hand, deck)
+  def hit?(hand, deck)
     super
-    # Stands on all 17s.
-    return true if hand.to_i < 17
+
+    # Hits 16 and below.
+    if hand.to_i < 17
+      hand.add(deck.next)
+      hand.done = true if hand.bust? or hand.to_i == 21
+      return true
+    end
+
+    # Stands 17 and above.
+    hand.done = true
     return false
+  end
+
+  def up_card
+    raise RangeException.new("Dealer doesn't yet have cards.") unless
+      first_hand.cards.length >= 2
+    first_hand.cards[1]
   end
 end
